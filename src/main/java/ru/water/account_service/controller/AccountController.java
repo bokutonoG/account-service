@@ -21,13 +21,15 @@ public class AccountController {
     }
 
     @PostMapping("/create-account")
-    public ResponseEntity<?> createAccount(@RequestBody CreateAccountRequest dto) {
-        return service.createAccount(dto);
+    public ResponseEntity<Void> createAccount(@RequestBody CreateAccountRequest dto) {
+        service.createAccount(dto);
+        return ResponseEntity.ok().build();
     }
 
     @GetMapping("/get-account/{id}")
-    public ResponseEntity<?> getAccount(@PathVariable Long id) {
-        return service.getAccount(id);
+    public ResponseEntity<GetAccountDataResponse> getAccount(@PathVariable Long id) {
+
+        return ResponseEntity.ok(service.getAccount(id));
     }
 
     @GetMapping("/get-account/by-user-id/{userId}")
