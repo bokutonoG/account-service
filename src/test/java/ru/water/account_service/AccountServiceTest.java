@@ -9,11 +9,18 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpStatus;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DataAccessResourceFailureException;
 import ru.water.account_service.dto.CreateAccountRequest;
 import ru.water.account_service.entity.Account;
+import ru.water.account_service.exception.AccountAlreadyExistsException;
+import ru.water.account_service.exception.AccountNotFoundException;
+import ru.water.account_service.exception.InternalServerErrorException;
 import ru.water.account_service.repository.AccountRepository;
 import ru.water.account_service.service.AccountService;
+
+
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -55,9 +62,22 @@ public class AccountServiceTest {
             var dto = getCreateAccountRequest();
             when(mapper.convertValue(dto, Account.class)).thenThrow(IllegalArgumentException.class);
             // when + then
-            assertThrows(IllegalArgumentException.class, ()-> service.createAccount(dto));
+            assertThrows(InternalServerErrorException.class, ()-> service.createAccount(dto));
 
             verify(mapper).convertValue(dto, Account.class);
+            verify(repository, never()).save(any());
+        }
+
+        @Test
+        void createAccountWithDuplicateUserId() {
+            //given
+            var dto = getCreateAccountRequest();
+            when(repository.existsByUserId(dto.userId())).thenReturn(true);
+            // when + then
+            assertThrows(AccountAlreadyExistsException.class, ()-> service.createAccount(dto));
+            // then
+            verify(repository).existsByUserId(dto.userId());
+            verify(mapper, never()).convertValue(any(), eq(Account.class));
             verify(repository, never()).save(any());
         }
 
@@ -79,10 +99,70 @@ public class AccountServiceTest {
     }
 
     @Nested
-    @DisplayName("")
+    @DisplayName("получение аккаунта по id")
     class getAccountTests {
+        @Test
+        public void getAccountPositiveTest() {
+            //given
+            var account = getAccount();
+            Long id = 1L;
+            when(repository.findById(id)).thenReturn(Optional.of(account));
+            //when
+            var response = service.getAccount(1L);
+            //then
+            assertEquals(account.getName(), response.name());
+            assertEquals(account.getUserId(), response.userId());
+            verify(repository).findById(id);
+        }
+        @Test
+        public void getAccountMappingExceptionTest() {
+            //given
+            var account = getAccount();
+            Long id = 1L;
+            when(repository.findById(id)).thenReturn(Optional.empty());
+            //when
+            assertThrows(AccountNotFoundException.class, () -> service.getAccount(1L));
+            //then
+            verify(repository).findById(id);
+        }
+        @Test
+        public void getAccountInternalExceptionTest() {
+            //given
+            Long id = 1L;
+            when(repository.findById(id)).thenThrow(new DataAccessResourceFailureException("DB problem"));
+            //when
+            assertThrows(InternalServerErrorException.class, () -> service.getAccount(1L));
+            //then
+            verify(repository).findById(id);
+        }
 
 
+    }
+
+    @Nested
+    @DisplayName("проверка наличия аккаунта по user_id")
+    class getAccountByUserId {
+
+        @Test
+        void getAccountByUserIdPositiveTest() {
+            //given
+            var account = getAccount();
+            when(repository.findAccountByUserId(DEFAULT_USER_ID)).thenReturn(Optional.of(account));
+            //when
+            service.getAccountByUserId(DEFAULT_USER_ID);
+            //then
+            verify(repository).findAccountByUserId(DEFAULT_USER_ID);
+        }
+
+        @Test
+        void getAccountByUserIdNegativeTest() {
+            //given
+            when(repository.findAccountByUserId(DEFAULT_USER_ID)).thenReturn(Optional.empty());
+            //when
+            assertThrows(AccountNotFoundException.class, () -> service.getAccountByUserId(DEFAULT_USER_ID));
+            //then
+            verify(repository).findAccountByUserId(DEFAULT_USER_ID);
+        }
     }
 
 
@@ -94,10 +174,10 @@ public class AccountServiceTest {
         );
     }
     private static CreateAccountRequest getCreateAccountRequest() {
-        return new CreateAccountRequest(
-                DEFAULT_USER_ID,
-                VALID_NAME
-        );
+        return CreateAccountRequest.builder()
+                .name(VALID_NAME)
+                .userId(DEFAULT_USER_ID)
+                .build();
     }
 
 }
