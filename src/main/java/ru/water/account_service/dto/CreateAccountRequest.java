@@ -1,16 +1,10 @@
 package ru.water.account_service.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 
-@Getter
-@Setter
-@AllArgsConstructor
-@NoArgsConstructor
-public class CreateAccountRequest {
+import jakarta.validation.constraints.NotBlank;
+import lombok.Builder;
 
-    private String userId;
-    private String name;
+@Builder
+public record CreateAccountRequest(@NotBlank String userId,
+                                   @NotBlank String name) {
 }
