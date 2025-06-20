@@ -8,3 +8,6 @@ spring:
     url: jdbc:postgresql://localhost:5432/postgres
     username: postgres
     password: 12345
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%X{request_id}] %-5level %logger{36} - %msg%n"

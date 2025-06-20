@@ -3,6 +3,7 @@ package ru.water.account_service.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,9 +13,10 @@ import ru.water.account_service.entity.Account;
 import ru.water.account_service.exception.AccountAlreadyExistsException;
 import ru.water.account_service.exception.AccountNotFoundException;
 import ru.water.account_service.exception.InternalServerErrorException;
+import ru.water.account_service.logger.Messages;
 import ru.water.account_service.repository.AccountRepository;
 
-
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AccountService {
@@ -43,12 +45,14 @@ public class AccountService {
 
     @Transactional
     public void createAccount(CreateAccountRequest dto) {
+        log.info("Начинаем создавать аккаунт с user_id={}", dto.userId());
         if(repository.existsByUserId(dto.userId())) {
-            throw new AccountAlreadyExistsException("Аккаунт с таким user_id уже существует");
+            throw new AccountAlreadyExistsException(Messages.USER_NAME_ALREADY_EXISTS.getMessage());
         }
         try {
             var account = mapper.convertValue(dto, Account.class);
             repository.save(account);
+            log.info("Аккаунт успешно создан: userId={}", dto.userId());
         }
         catch (IllegalArgumentException | DataAccessException e) {
             throw new InternalServerErrorException("Ошибка при сохранении аккаунта", e);
