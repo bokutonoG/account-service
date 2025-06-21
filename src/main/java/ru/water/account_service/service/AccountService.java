@@ -35,7 +35,6 @@ public class AccountService {
         } catch (DataAccessException e) {
             throw new InternalServerErrorException("Ошибка при обращении к БД", e);
         }
-
     }
 
     public void getAccountByUserId(String userId) {
