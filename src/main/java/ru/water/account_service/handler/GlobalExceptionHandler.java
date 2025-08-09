@@ -1,5 +1,6 @@
 package ru.water.account_service.handler;
 
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -43,6 +44,13 @@ public class GlobalExceptionHandler {
     public ErrorType handleInternalServerErrorException(InternalServerErrorException e) {
         log.error(e.getMessage(), e);
         return ErrorAs.AS_002.getErrorType();
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    @ResponseStatus(value = HttpStatus.BAD_REQUEST)
+    public ErrorType handleConstraintViolationException(ConstraintViolationException e) {
+        log.error(e.getMessage(), e);
+        return ErrorAs.AS_001.getErrorType();
     }
 
 

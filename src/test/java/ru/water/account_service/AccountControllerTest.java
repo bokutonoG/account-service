@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.springframework.dao.DataRetrievalFailureException;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.MediaType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -27,6 +27,7 @@ import ru.water.account_service.service.AccountService;
 import java.util.stream.Stream;
 
 import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest({AccountController.class, GlobalExceptionHandler.class})
@@ -41,6 +42,8 @@ public class AccountControllerTest {
     private final String GET_ACCOUNT_PATH = "/api/v1/get-account/{id}";
     private final String CREATE_ACCOUNT_PATH = "/api/v1/create-account";
     private final String CHECK_ACCOUNT_PATH = "/api/v1/check-account/{userId}";
+    private final String DELETE_ACCOUNT_PATH = "/api/v1/delete-account/{userId}";
+
 
     @Test
     @SneakyThrows
@@ -56,7 +59,8 @@ public class AccountControllerTest {
                         .accept(MediaType.APPLICATION_JSON))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.user_id").value("12345"))
-            .andExpect(jsonPath("$.name").value("gleb"));
+            .andExpect(jsonPath("$.name").value("gleb"))
+            .andDo(print());
     }
 
     @Test
@@ -221,6 +225,70 @@ public class AccountControllerTest {
             .andExpect(content().json(expectedResponseBody));
 
         verify(accountService).getAccountByUserId(userId);
+    }
+
+
+    @SneakyThrows
+    @ParameterizedTest
+    @ValueSource(strings = {" ", "   ", "\t", "\n"})
+    @DisplayName("")
+    void negativeUserIdTest(String user_id) {
+        // собираем json ответ
+        var expectedResponseBody = "{\"code\":\"AS-001\",\"message\":\"Неправильный запрос\"}";
+
+        // начинаем собирать запрос
+        mvc.perform(MockMvcRequestBuilders
+                        .delete(DELETE_ACCOUNT_PATH, user_id)
+                        .accept(MediaType.APPLICATION_JSON))
+                        .andExpect(status().isBadRequest())
+                        .andExpect(content().json(expectedResponseBody));
+
+        verifyNoInteractions(accountService);
+    }
+    @Test
+    @SneakyThrows
+    @DisplayName("")
+    void deleteAccountPositiveTest() {
+        var userId = "13456";
+
+        doNothing().when(accountService).deleteAccount(userId);
+        mvc.perform(MockMvcRequestBuilders
+                        .delete(DELETE_ACCOUNT_PATH, userId)
+                        .accept(MediaType.APPLICATION_JSON))
+                        .andExpect(status().isNoContent());
+
+        verify(accountService).deleteAccount(userId);
+    }
+    @Test
+    @SneakyThrows
+    @DisplayName("")
+    void deleteAccountNotFoundTest() {
+        var userId = "13456";
+        var expectedResponseBody = "{\"code\":\"AS-004\",\"message\":\"Аккаунт не найден\"}";
+        doThrow(AccountNotFoundException.class).when(accountService).deleteAccount(userId);
+        mvc.perform(MockMvcRequestBuilders
+                        .delete(DELETE_ACCOUNT_PATH, userId)
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound())
+                .andExpect(content().json(expectedResponseBody));
+
+        verify(accountService).deleteAccount(userId);
+    }
+
+    @Test
+    @SneakyThrows
+    @DisplayName("")
+    void deleteAccountDbExceptionTest() {
+        var userId = "13456";
+        var expectedResponseBody = "{\"code\":\"AS-002\",\"message\":\"Внутрення ошибка сервера\"}";
+        doThrow(InternalServerErrorException.class).when(accountService).deleteAccount(userId);
+        mvc.perform(MockMvcRequestBuilders
+                        .delete(DELETE_ACCOUNT_PATH, userId)
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isInternalServerError())
+                .andExpect(content().json(expectedResponseBody));
+
+        verify(accountService).deleteAccount(userId);
     }
 
     public static Stream<Arguments> emptyValues() {

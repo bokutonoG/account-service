@@ -16,6 +16,8 @@ import ru.water.account_service.exception.InternalServerErrorException;
 import ru.water.account_service.logger.Messages;
 import ru.water.account_service.repository.AccountRepository;
 
+import static ru.water.account_service.logger.Messages.*;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -27,11 +29,14 @@ public class AccountService {
     public GetAccountDataResponse getAccount(Long id) {
         try {
             var account = repository.findById(id);
-            return account.map(v -> GetAccountDataResponse.builder()
+            var result =  account.map(v -> GetAccountDataResponse.builder()
                             .userId(v.getUserId())
                             .name(v.getName())
                             .build())
                             .orElseThrow(() -> new AccountNotFoundException("Аккаунт не найден"));
+            log.info(GET_ACCOUNT_RESPONSE.message);
+            return result;
+
         } catch (DataAccessException e) {
             throw new InternalServerErrorException("Ошибка при обращении к БД", e);
         }
@@ -40,6 +45,7 @@ public class AccountService {
     public void getAccountByUserId(String userId) {
         repository.findAccountByUserId(userId)
                   .orElseThrow(() -> new AccountNotFoundException("Аккаунт не найден"));
+        log.info(CHECK_ACCOUNT_RESPONSE.message);
     }
 
     @Transactional
@@ -51,11 +57,25 @@ public class AccountService {
         try {
             var account = mapper.convertValue(dto, Account.class);
             repository.save(account);
-            log.info("Аккаунт успешно создан: userId={}", dto.userId());
+            log.info("{}. Аккаунт успешно создан: userId={}", CREATE_ACCOUNT_RESPONSE.message, dto.userId());
         }
         catch (IllegalArgumentException | DataAccessException e) {
             throw new InternalServerErrorException("Ошибка при сохранении аккаунта", e);
         }
 
+    }
+
+    @Transactional
+    public void deleteAccount(String id) {
+        log.info("Начинаем удалять аккаунт с user_id={}", id);
+        if(!repository.existsByUserId(id)) {
+            throw new AccountNotFoundException("Аккаунт не найден");
+        }
+        try {
+            repository.deleteByUserId(id);
+        }
+        catch (DataAccessException e) {
+            throw new InternalServerErrorException("Ошибка при удалении аккаунта", e);
+        }
     }
 }
